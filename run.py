@@ -309,29 +309,39 @@ async def addon_stream(request: Request,config, type, id,):
             mfp_password_to_pass = MFP_CREDENTIALS[1] if MFP == "1" and MFP_CREDENTIALS else None
             # print(f"DEBUG RUN.PY: MFP URL da passare: {mfp_url_to_pass}, MFP Password presente: {'Sì' if mfp_password_to_pass else 'No'}")
 
-            for omgtv_source in omgtv_sources_to_try:
-                # Construct the full OMGTV-style ID to query
-                omgtv_channel_id_full = f"omgtv-{omgtv_source}-{channel_name_query_base.replace(' ', '-')}"
-                # print(f"DEBUG RUN.PY: Tentativo sorgente OMGTV: {omgtv_source}, ID completo query: {omgtv_channel_id_full}")
-                
-                omgtv_stream_list = await get_omgtv_streams_for_channel_id(
-                    channel_id_full=omgtv_channel_id_full,
-                    client=client, # Pass the AsyncSession client
-                    mfp_url=mfp_url_to_pass,
-                    mfp_password=mfp_password_to_pass
-                )
-                if omgtv_stream_list:
-                    for stream_item in omgtv_stream_list:
-                        # print(f"DEBUG RUN.PY: Aggiungendo stream da OMGTV ({omgtv_source}): {stream_item.get('title')}")
-                        # Ensure unique titles if multiple OMGTV sources provide the same channel
-                        stream_title = f"{Icon}{stream_item.get('title', f'{channel_name_query_base.title()} ({omgtv_source.upper()})')}"
-                        streams['streams'].append({
-                            'name': f"{Name} - {stream_item.get('group', omgtv_source.upper())}",
-                            'title': stream_title,
-                            'url': stream_item['url'],
-                            'behaviorHints': stream_item.get('behaviorHints', {"notWebReady": True}) # Default to notWebReady if not specified
-                        })
-            # --- END OMGTV Integration ---
+            # --- OMGTV Integration con 4 funzioni separate ---
+            omgtv_sources_mapping = {
+    "daddy": get_daddy_streams_with_mfp,
+    "vavoo": get_vavoo_streams_with_mfp,
+    "calcionew": get_calcionew_streams_with_mfp,
+    "mpdstatic": get_mpdstatic_streams_with_mfp
+}
+
+channel_name_query_base = id.replace('-', ' ')
+
+mfp_url_to_pass = MFP_CREDENTIALS[0] if MFP == "1" and MFP_CREDENTIALS else None
+mfp_password_to_pass = MFP_CREDENTIALS[1] if MFP == "1" and MFP_CREDENTIALS else None
+
+for omgtv_source, source_function in omgtv_sources_mapping.items():
+    omgtv_channel_id_full = f"{omgtv_source}-{channel_name_query_base.replace(' ', '-')}"
+    
+    omgtv_stream_list = await source_function(
+        client=client,
+        channel_id_full=omgtv_channel_id_full,
+        mfp_url=mfp_url_to_pass,
+        mfp_password=mfp_password_to_pass
+    )
+    
+    if omgtv_stream_list:
+        for stream_item in omgtv_stream_list:
+            stream_title = f"{Icon}{stream_item.get('title', f'{channel_name_query_base.title()} ({omgtv_source.upper()})')}"
+            streams['streams'].append({
+                'name': f"{Name} - {stream_item.get('group', omgtv_source.upper())}",
+                'title': stream_title,
+                'url': stream_item['url'],
+                'behaviorHints': stream_item.get('behaviorHints', {"notWebReady": True})
+            })
+# --- END OMGTV Integration ---
             
             if not streams['streams']:
                 raise HTTPException(status_code=404)
@@ -461,6 +471,93 @@ async def addon_stream(request: Request,config, type, id,):
 
     return respond_with(streams)
 
+
+async def apply_mfp_to_stream(stream_url, mfp_url, mfp_password, stream_type="hls"):
+    """
+    Applica la logica MFP a un singolo stream URL.
+    """
+    if stream_type == "mpd":
+        # Gestione specifica per MPD
+        mpd_marker = ".mpd"
+        try:
+            mpd_index = stream_url.lower().index(mpd_marker)
+            base_mpd_url = stream_url[:mpd_index + len(mpd_marker)]
+            
+            query_string_part = ""
+            if len(stream_url) > mpd_index + len(mpd_marker):
+                potential_query_part = stream_url[mpd_index + len(mpd_marker):]
+                if potential_query_part.startswith("&"):
+                    query_string_part = potential_query_part[1:]
+            
+            if query_string_part:
+                return f"{mfp_url}/proxy/mpd/manifest.m3u8?api_password={mfp_password}&d={urllib.parse.quote(base_mpd_url)}&{query_string_part}"
+            else:
+                return f"{mfp_url}/proxy/mpd/manifest.m3u8?api_password={mfp_password}&d={urllib.parse.quote(base_mpd_url)}"
+        except ValueError:
+            # Fallback a HLS se .mpd non trovato
+            return f"{mfp_url}/proxy/hls/manifest.m3u8?api_password={mfp_password}&d={urllib.parse.quote(stream_url)}"
+    elif stream_type == "daddy":
+        # Gestione specifica per Daddy
+        return f"{mfp_url}/extractor/video?host=DLHD&redirect_stream=true&api_password={mfp_password}&d={urllib.parse.quote(stream_url)}"
+    else:
+        # Default HLS
+        return f"{mfp_url}/proxy/hls/manifest.m3u8?api_password={mfp_password}&d={urllib.parse.quote(stream_url)}"
+
+async def get_daddy_streams_with_mfp(client, channel_id_full, mfp_url=None, mfp_password=None):
+    """Funzione separata per Daddy con gestione MFP."""
+    if DADDY != "1":
+        return []
+    
+    streams = await get_daddy_streams_for_channel_id(channel_id_full, client)
+    
+    # Applica MFP se abilitato
+    if mfp_url and mfp_password and streams:
+        for stream in streams:
+            stream['url'] = await apply_mfp_to_stream(stream['url'], mfp_url, mfp_password, "daddy")
+    
+    return streams
+
+async def get_vavoo_streams_with_mfp(client, channel_id_full, mfp_url=None, mfp_password=None):
+    """Funzione separata per Vavoo con gestione MFP."""
+    if VAVOO != "1":
+        return []
+    
+    streams = await get_vavoo_streams_for_channel_id(channel_id_full, client)
+    
+    # Applica MFP se abilitato
+    if mfp_url and mfp_password and streams:
+        for stream in streams:
+            stream['url'] = await apply_mfp_to_stream(stream['url'], mfp_url, mfp_password, "hls")
+    
+    return streams
+
+async def get_calcionew_streams_with_mfp(client, channel_id_full, mfp_url=None, mfp_password=None):
+    """Funzione separata per CalcioNew con gestione MFP."""
+    if CALCIONEW != "1":
+        return []
+    
+    streams = await get_calcionew_streams_for_channel_id(channel_id_full, client)
+    
+    # Applica MFP se abilitato
+    if mfp_url and mfp_password and streams:
+        for stream in streams:
+            stream['url'] = await apply_mfp_to_stream(stream['url'], mfp_url, mfp_password, "hls")
+    
+    return streams
+
+async def get_mpdstatic_streams_with_mfp(client, channel_id_full, mfp_url=None, mfp_password=None):
+    """Funzione separata per MPD Static con gestione MFP."""
+    if MPDSTATIC != "1":
+        return []
+    
+    streams = await get_mpdstatic_streams_for_channel_id(channel_id_full, client)
+    
+    # Applica MFP se abilitato
+    if mfp_url and mfp_password and streams:
+        for stream in streams:
+            stream['url'] = await apply_mfp_to_stream(stream['url'], mfp_url, mfp_password, "mpd")
+    
+    return streams
 
 if __name__ == '__main__':
     import uvicorn
