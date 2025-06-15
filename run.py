@@ -11,6 +11,9 @@ from Src.API.guardaserie import guardaserie
 from Src.API.guardahd import guardahd
 import  Src.Utilities.config as config
 import logging
+# Configure basic logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s')
+
 from Src.API.okru import okru_get_url
 from Src.API.animeworld import animeworld
 from Src.Utilities.dictionaries import okru,STREAM,extra_sources,webru_vary,webru_dlhd,provider_map,skystreaming
@@ -122,7 +125,7 @@ async def transform_mfp(mfp_stream_url,client):
 
         return url
     except Exception as e:
-        print("Transforing MFP failed",e)
+        logging.error(f"Transforming MFP failed for URL {mfp_stream_url}: {e}", exc_info=True)
         return None
 @app.get('/config')
 def config():
@@ -194,7 +197,7 @@ async def addon_meta(request: Request,id: str):
             description,title =  await epg_guide(channel["id"],client)
         elif channel["id"] in tivu:
             description = await tivu_get(channel["id"],client)
-            print(description)
+            logging.info(f"EPG description for Tivu channel {channel['id']}: {description}")
             title = ""
         else:
             description = f'Watch {channel["title"]}'
@@ -321,6 +324,7 @@ async def addon_stream(request: Request, config, type, id,):
             
             for omgtv_source, source_function in omgtv_sources_mapping.items():
                 omgtv_channel_id_full = f"{omgtv_source}-{channel_name_query_base.replace(' ', '-')}"
+                logging.info(f"Processing OMGTV source: {omgtv_source} for channel ID query: {omgtv_channel_id_full}")
                 
                 omgtv_stream_list = await source_function(
                     client=client,
@@ -328,6 +332,7 @@ async def addon_stream(request: Request, config, type, id,):
                     mfp_url=mfp_url_to_pass,
                     mfp_password=mfp_password_to_pass
                 )
+                logging.info(f"Streams found for {omgtv_source} ({omgtv_channel_id_full}): {len(omgtv_stream_list) if omgtv_stream_list else 0}")
                 
                 if omgtv_stream_list:
                     for stream_item in omgtv_stream_list:
@@ -491,25 +496,32 @@ async def apply_mfp_to_stream(stream_url, mfp_url, mfp_password, stream_type="hl
     """
     if stream_type == "mpd":
         # Gestione specifica per MPD
+        logging.info(f"Applying MFP to MPD stream: {stream_url}")
         mpd_marker = ".mpd"
         try:
-            mpd_index = stream_url.lower().index(mpd_marker)
-            base_mpd_url = stream_url[:mpd_index + len(mpd_marker)]
+            # Trova l'URL base fino a .mpd incluso
+            actual_stream_url_lower = stream_url.lower()
+            mpd_index = actual_stream_url_lower.index(mpd_marker)
+            base_mpd_url_strict = stream_url[:mpd_index + len(mpd_marker)]
             
-            query_string_part = ""
-            if len(stream_url) > mpd_index + len(mpd_marker):
-                potential_query_part = stream_url[mpd_index + len(mpd_marker):]
-                if potential_query_part.startswith("&"):
-                    query_string_part = potential_query_part[1:]
+            # Estrai la query string dall'URL originale completo usando urllib.parse
+            parsed_original_url = urllib.parse.urlparse(stream_url)
+            original_query_string = parsed_original_url.query
+
+            mfp_base_query = f"api_password={mfp_password}&d={urllib.parse.quote(base_mpd_url_strict)}"
             
-            if query_string_part:
-                return f"{mfp_url}/proxy/mpd/manifest.m3u8?api_password={mfp_password}&d={urllib.parse.quote(base_mpd_url)}&{query_string_part}"
-            else:
-                return f"{mfp_url}/proxy/mpd/manifest.m3u8?api_password={mfp_password}&d={urllib.parse.quote(base_mpd_url)}"
-        except ValueError:
+            final_mfp_url = f"{mfp_url}/proxy/mpd/manifest.m3u8?{mfp_base_query}"
+            if original_query_string:
+                final_mfp_url += f"&{original_query_string}"
+            
+            logging.info(f"Applying MFP to MPD: Original='{stream_url}', BaseMPD='{base_mpd_url_strict}', Query='{original_query_string}', Result='{final_mfp_url}'")
+            return final_mfp_url
+        except ValueError: # Se .mpd non è in stream_url
+            logging.warning(f"'.mpd' marker not found in URL '{stream_url}' for MPD type. Falling back to HLS for MFP.")
             # Fallback a HLS se .mpd non trovato
             return f"{mfp_url}/proxy/hls/manifest.m3u8?api_password={mfp_password}&d={urllib.parse.quote(stream_url)}"
     elif stream_type == "daddy":
+        logging.info(f"Applying MFP to Daddy stream: {stream_url}")
         # Gestione specifica per Daddy
         return f"{mfp_url}/extractor/video?host=DLHD&redirect_stream=true&api_password={mfp_password}&d={urllib.parse.quote(stream_url)}"
     else:
@@ -518,16 +530,22 @@ async def apply_mfp_to_stream(stream_url, mfp_url, mfp_password, stream_type="hl
 
 async def get_daddy_streams_with_mfp(client, channel_id_full, mfp_url=None, mfp_password=None):
     """Funzione separata per Daddy con gestione MFP."""
+    logging.info(f"Attempting to get Daddy streams for: {channel_id_full}, MFP enabled: {bool(mfp_url and mfp_password)}")
     if DADDY != "1":
+        logging.warning("Daddy provider is disabled in config.")
         return []
     
     streams = await get_daddy_streams_for_channel_id(channel_id_full, client)
+    logging.info(f"Raw Daddy streams for {channel_id_full}: {len(streams) if streams else 0}")
     
     # Applica MFP se abilitato
     if mfp_url and mfp_password and streams:
         for stream in streams:
+            original_url = stream['url']
             stream['url'] = await apply_mfp_to_stream(stream['url'], mfp_url, mfp_password, "daddy")
-    
+            logging.info(f"Daddy stream for {channel_id_full}: Original URL: {original_url}, MFP URL: {stream['url']}")
+    elif streams:
+        logging.info(f"MFP not applied to Daddy streams for {channel_id_full} (MFP not enabled or no streams).")
     return streams
 
 async def get_vavoo_streams_with_mfp(client, channel_id_full, mfp_url=None, mfp_password=None):
@@ -546,16 +564,22 @@ async def get_vavoo_streams_with_mfp(client, channel_id_full, mfp_url=None, mfp_
 
 async def get_calcionew_streams_with_mfp(client, channel_id_full, mfp_url=None, mfp_password=None):
     """Funzione separata per CalcioNew con gestione MFP."""
+    logging.info(f"Attempting to get CalcioNew streams for: {channel_id_full}, MFP enabled: {bool(mfp_url and mfp_password)}")
     if CALCIONEW != "1":
+        logging.warning("CalcioNew provider is disabled in config.")
         return []
     
     streams = await get_calcionew_streams_for_channel_id(channel_id_full, client)
+    logging.info(f"Raw CalcioNew streams for {channel_id_full}: {len(streams) if streams else 0}")
     
     # Applica MFP se abilitato
     if mfp_url and mfp_password and streams:
         for stream in streams:
+            original_url = stream['url']
             stream['url'] = await apply_mfp_to_stream(stream['url'], mfp_url, mfp_password, "hls")
-    
+            logging.info(f"CalcioNew stream for {channel_id_full}: Original URL: {original_url}, MFP URL: {stream['url']}")
+    elif streams:
+        logging.info(f"MFP not applied to CalcioNew streams for {channel_id_full} (MFP not enabled or no streams).")
     return streams
 
 async def get_mpdstatic_streams_with_mfp(client, channel_id_full, mfp_url=None, mfp_password=None):
