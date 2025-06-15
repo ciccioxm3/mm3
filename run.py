@@ -17,6 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 from Src.API.okru import okru_get_url
 from Src.API.animeworld import animeworld
 from Src.Utilities.dictionaries import okru,STREAM,extra_sources,webru_vary,webru_dlhd,provider_map,skystreaming
+from Src.Utilities.dictionaries import omgtv_channel_provider_map # Importa il nuovo dizionario
 from Src.API.epg import tivu, tivu_get,epg_guide,convert_bho_1,convert_bho_2,convert_bho_3
 from Src.API.webru import webru,get_skystreaming
 from Src.API.onlineserietv import onlineserietv
@@ -223,17 +224,17 @@ async def addon_meta(request: Request,id: str):
 
 @app.get('/{config:path}/stream/{type}/{id}.json')
 @limiter.limit("5/second")
-async def addon_stream(request: Request, config, type, id,):
+async def addon_stream(request: Request, config: str, type: str, id: str): # Rinominato config in config_str per evitare conflitti
     if type not in MANIFEST['types']:
         raise HTTPException(status_code=404)
     streams = {'streams': []}
-    if "|" in config:
-        config_providers = config.split('|')
-    elif "%7C" in config: # Gestisce l'URL encoding di Stremio per "|"
-        config_providers = config.split('%7C')
+    if "|" in config: # config è ora config_str
+        config_providers = config.split('|') # config_str
+    elif "%7C" in config: # config_str
+        config_providers = config.split('%7C') # config_str
     else: # Caso base se non ci sono provider specifici nella config (improbabile per stream)
         config_providers = []
-
+    
     provider_maps = {name: "0" for name in provider_map.values()}
     for provider in config_providers:
         if provider in provider_map:
@@ -243,9 +244,9 @@ async def addon_stream(request: Request, config, type, id,):
     MFP = "0"
     MFP_CREDENTIALS = None # Inizializza a None
 
-    if "MFP[" in config:
+    if "MFP[" in config: # config_str
     # Extract proxy data between "MFP(" and ")"
-        mfp_data = config.split("MFP[")[1].split(")")[0]  
+        mfp_data = config.split("MFP[")[1].split(")")[0]  # config_str
     # Split the data by comma to get proxy URL and password
         MFP_url, MFP_password = mfp_data.split(",")
         MFP_password = MFP_password[:-2]
@@ -306,7 +307,6 @@ async def addon_stream(request: Request, config, type, id,):
                                 streams['streams'].append({'title': f"{Icon}Proxied Server D-{i} " + channel['title'],'url': webru_url_2})
                             else:
                                 streams['streams'].append({'title': f'{Icon}Server D-{i}' + channel['title'], 'url': webru_url_2, "behaviorHints": {"notWebReady": True, "proxyHeaders": {"request": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3", "Accept": "*/*", "Accept-Language": "en-US,en;q=0.5", "Origin": Origin_webru_url_2, "DNT": "1", "Sec-GPC": "1", "Connection": "keep-alive", "Referer": Referer_webru_url_2, "Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Site": "cross-site", "Pragma": "no-cache", "Cache-Control": "no-cache", "TE": "trailers"}}}})
-            # omgtv_sources_to_try = ["247ita", "calcio", "vavoo", "static"] # Variabile non utilizzata
             channel_name_query_base = id.replace('-', ' ')
             # print(f"DEBUG RUN.PY: addon_stream per TV ID: {id}, channel_name_query_base: {channel_name_query_base}")
             mfp_url_to_pass = MFP_CREDENTIALS[0] if MFP == "1" and MFP_CREDENTIALS else None
@@ -320,31 +320,42 @@ async def addon_stream(request: Request, config, type, id,):
                 "calcionew": get_calcionew_streams_with_mfp,
                 "mpdstatic": get_mpdstatic_streams_with_mfp
             }
-            # Le variabili channel_name_query_base, mfp_url_to_pass, mfp_password_to_pass sono già definite sopra
-            
-            for omgtv_source, source_function in omgtv_sources_mapping.items():
-                omgtv_channel_id_full = f"{omgtv_source}-{channel_name_query_base.replace(' ', '-')}"
-                logging.info(f"Processing OMGTV source: {omgtv_source} for channel ID query: {omgtv_channel_id_full}")
-                
-                omgtv_stream_list = await source_function(
-                    client=client,
-                    channel_id_full=omgtv_channel_id_full,
-                    mfp_url=mfp_url_to_pass,
-                    mfp_password=mfp_password_to_pass
-                )
-                logging.info(f"Streams found for {omgtv_source} ({omgtv_channel_id_full}): {len(omgtv_stream_list) if omgtv_stream_list else 0}")
-                
-                if omgtv_stream_list:
-                    for stream_item in omgtv_stream_list:
-                        stream_title = f"{Icon}{stream_item.get('title', f'{channel_name_query_base.title()} ({omgtv_source.upper()})')}"
-                        streams['streams'].append({
-                            'name': f"{Name} - {stream_item.get('group', omgtv_source.upper())}",
-                            'title': stream_title,
-                            'url': stream_item['url'],
-                            'behaviorHints': stream_item.get('behaviorHints', {"notWebReady": True})
-                        })
+            # Determina i provider OMGTV pertinenti per il canale corrente
+            relevant_omgtv_providers = None
+            if channel_name_query_base in omgtv_channel_provider_map:
+                relevant_omgtv_providers = omgtv_channel_provider_map[channel_name_query_base]
+                # logging.info(f"Channel '{channel_name_query_base}' found in omgtv_channel_provider_map. Relevant providers: {relevant_omgtv_providers}")
+            else:
+                # logging.warning(f"Channel '{channel_name_query_base}' not in omgtv_channel_provider_map. Will attempt all OMGTV sources.")
+                pass # Se non mappato, relevant_omgtv_providers rimane None, quindi tutti i provider verranno tentati
+
+            for omgtv_source_key, source_function in omgtv_sources_mapping.items():
+                # Interroga la sorgente solo se è pertinente per il canale o se non è stata trovata alcuna lista specifica
+                if relevant_omgtv_providers is None or omgtv_source_key in relevant_omgtv_providers:
+                    omgtv_channel_id_full = f"{omgtv_source_key}-{channel_name_query_base.replace(' ', '-')}"
+                    # logging.info(f"Processing OMGTV source: {omgtv_source_key} for channel ID query: {omgtv_channel_id_full}")
+                    
+                    omgtv_stream_list = await source_function(
+                        client=client,
+                        channel_id_full=omgtv_channel_id_full,
+                        mfp_url=mfp_url_to_pass,
+                        mfp_password=mfp_password_to_pass
+                    )
+                    # logging.info(f"Streams found for {omgtv_source_key} ({omgtv_channel_id_full}): {len(omgtv_stream_list) if omgtv_stream_list else 0}")
+                    
+                    if omgtv_stream_list:
+                        for stream_item in omgtv_stream_list:
+                            stream_title = f"{Icon}{stream_item.get('title', f'{channel_name_query_base.title()} ({omgtv_source_key.upper()})')}"
+                            streams['streams'].append({
+                                'name': f"{Name} - {stream_item.get('group', omgtv_source_key.upper())}",
+                                'title': stream_title,
+                                'url': stream_item['url'],
+                                'behaviorHints': stream_item.get('behaviorHints', {"notWebReady": True})
+                            })
+                # else:
+                    # logging.info(f"Skipping OMGTV source '{omgtv_source_key}' for channel '{channel_name_query_base}' as it's not in the relevant provider list.")
             # --- END OMGTV Integration ---
-            
+                
             # Controlla se ci sono stream DOPO aver provato tutte le sorgenti TV (incluse OMGTV)
             if not streams['streams']:
                 raise HTTPException(status_code=404)
