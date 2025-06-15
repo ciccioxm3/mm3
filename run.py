@@ -309,8 +309,7 @@ async def addon_stream(request: Request,config, type, id,):
             mfp_password_to_pass = MFP_CREDENTIALS[1] if MFP == "1" and MFP_CREDENTIALS else None
             # print(f"DEBUG RUN.PY: MFP URL da passare: {mfp_url_to_pass}, MFP Password presente: {'Sì' if mfp_password_to_pass else 'No'}")
 
-            # --- OMGTV Integration con 4 funzioni separate ---
-            omgtv_sources_mapping = {
+omgtv_sources_mapping = {
     "daddy": get_daddy_streams_with_mfp,
     "vavoo": get_vavoo_streams_with_mfp,
     "calcionew": get_calcionew_streams_with_mfp,
@@ -342,6 +341,8 @@ for omgtv_source, source_function in omgtv_sources_mapping.items():
                 'behaviorHints': stream_item.get('behaviorHints', {"notWebReady": True})
             })
 # --- END OMGTV Integration ---
+            # --- OMGTV Integration con 4 funzioni separate ---
+
         
         if not streams['streams']:
             raise HTTPException(status_code=404)
