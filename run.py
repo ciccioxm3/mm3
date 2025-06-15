@@ -342,10 +342,10 @@ for omgtv_source, source_function in omgtv_sources_mapping.items():
                 'behaviorHints': stream_item.get('behaviorHints', {"notWebReady": True})
             })
 # --- END OMGTV Integration ---
-            
-            if not streams['streams']:
-                raise HTTPException(status_code=404)
-            return respond_with(streams)
+        
+        if not streams['streams']:
+            raise HTTPException(status_code=404)
+        return respond_with(streams)
         
     elif "tt" in id or "tmdb" in id or "kitsu" in id:
         print(f"Handling movie or series: {id}")
