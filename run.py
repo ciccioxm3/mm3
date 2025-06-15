@@ -309,38 +309,38 @@ async def addon_stream(request: Request,config, type, id,):
             mfp_password_to_pass = MFP_CREDENTIALS[1] if MFP == "1" and MFP_CREDENTIALS else None
             # print(f"DEBUG RUN.PY: MFP URL da passare: {mfp_url_to_pass}, MFP Password presente: {'Sì' if mfp_password_to_pass else 'No'}")
 
-omgtv_sources_mapping = {
-    "daddy": get_daddy_streams_with_mfp,
-    "vavoo": get_vavoo_streams_with_mfp,
-    "calcionew": get_calcionew_streams_with_mfp,
-    "mpdstatic": get_mpdstatic_streams_with_mfp
-}
-
-channel_name_query_base = id.replace('-', ' ')
-
-mfp_url_to_pass = MFP_CREDENTIALS[0] if MFP == "1" and MFP_CREDENTIALS else None
-mfp_password_to_pass = MFP_CREDENTIALS[1] if MFP == "1" and MFP_CREDENTIALS else None
-
-for omgtv_source, source_function in omgtv_sources_mapping.items():
-    omgtv_channel_id_full = f"{omgtv_source}-{channel_name_query_base.replace(' ', '-')}"
-    
-    omgtv_stream_list = await source_function(
-        client=client,
-        channel_id_full=omgtv_channel_id_full,
-        mfp_url=mfp_url_to_pass,
-        mfp_password=mfp_password_to_pass
-    )
-    
-    if omgtv_stream_list:
-        for stream_item in omgtv_stream_list:
-            stream_title = f"{Icon}{stream_item.get('title', f'{channel_name_query_base.title()} ({omgtv_source.upper()})')}"
-            streams['streams'].append({
-                'name': f"{Name} - {stream_item.get('group', omgtv_source.upper())}",
-                'title': stream_title,
-                'url': stream_item['url'],
-                'behaviorHints': stream_item.get('behaviorHints', {"notWebReady": True})
-            })
-# --- END OMGTV Integration ---
+        omgtv_sources_mapping = {
+            "daddy": get_daddy_streams_with_mfp,
+            "vavoo": get_vavoo_streams_with_mfp,
+            "calcionew": get_calcionew_streams_with_mfp,
+            "mpdstatic": get_mpdstatic_streams_with_mfp
+        }
+        
+        channel_name_query_base = id.replace('-', ' ')
+        
+        mfp_url_to_pass = MFP_CREDENTIALS[0] if MFP == "1" and MFP_CREDENTIALS else None
+        mfp_password_to_pass = MFP_CREDENTIALS[1] if MFP == "1" and MFP_CREDENTIALS else None
+        
+        for omgtv_source, source_function in omgtv_sources_mapping.items():
+            omgtv_channel_id_full = f"{omgtv_source}-{channel_name_query_base.replace(' ', '-')}"
+            
+            omgtv_stream_list = await source_function(
+                client=client,
+                channel_id_full=omgtv_channel_id_full,
+                mfp_url=mfp_url_to_pass,
+                mfp_password=mfp_password_to_pass
+            )
+            
+            if omgtv_stream_list:
+                for stream_item in omgtv_stream_list:
+                    stream_title = f"{Icon}{stream_item.get('title', f'{channel_name_query_base.title()} ({omgtv_source.upper()})')}"
+                    streams['streams'].append({
+                        'name': f"{Name} - {stream_item.get('group', omgtv_source.upper())}",
+                        'title': stream_title,
+                        'url': stream_item['url'],
+                        'behaviorHints': stream_item.get('behaviorHints', {"notWebReady": True})
+                    })
+        # --- END OMGTV Integration ---
             # --- OMGTV Integration con 4 funzioni separate ---
 
         
