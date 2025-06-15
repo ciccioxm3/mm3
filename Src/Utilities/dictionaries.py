@@ -1336,3 +1336,64 @@ STATIC_CHANNELS_DATA = [
         "group": "MPD"
     }
 ]
+
+# Questo dizionario mappa un nome di canale (che corrisponde a 'id.replace("-", " ")' da STREAM)
+# a una lista di chiavi dei provider OMGTV ("daddy", "vavoo", "calcionew", "mpdstatic")
+# dove è probabile trovare il canale.
+omgtv_channel_provider_map = {
+    "sky uno": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky atlantic": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky sport uno": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky sport calcio": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky sport f1": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky sport 24": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky sport motogp": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky sport arena": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky sport tennis": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky sport nba": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky sport max": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky sport golf": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky sport 251": ["daddy", "mpdstatic", "calcionew"],
+    "sky sport 252": ["daddy", "mpdstatic", "calcionew"],
+    "sky sport 253": ["daddy", "mpdstatic", "calcionew"],
+    "sky sport 254": ["daddy", "mpdstatic", "calcionew"],
+    "sky sport 255": ["daddy", "mpdstatic", "calcionew"],
+    "sky sport 256": ["daddy", "mpdstatic", "calcionew"],
+    "sky sport 257": ["daddy", "mpdstatic", "calcionew"],
+    "sky sport 258": ["daddy", "mpdstatic", "calcionew"],
+    "sky sport 259": ["daddy", "mpdstatic", "calcionew"],
+    "sky cinema uno": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky cinema due": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky cinema comedy": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky cinema drama": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky cinema family": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky cinema romance": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky cinema suspence": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky cinema collection": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky cinema action": ["daddy", "mpdstatic", "calcionew", "vavoo"], # Basato sulla tua lista per "sky-cinema-action"
+    "sky arte": ["calcionew", "vavoo", "mpdstatic"],
+    "sky serie": ["daddy", "mpdstatic", "calcionew", "vavoo"], # Basato sulla tua lista per "sky-serie"
+    "sky nature": ["calcionew", "vavoo", "mpdstatic"],
+    "sky crime": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky documentaries": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "sky investigation": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "eurosport 1": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "eurosport 2": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "dazn 1": ["daddy", "mpdstatic", "calcionew", "vavoo"],
+    "rai 1": ["daddy", "vavoo"],
+    "rai 2": ["daddy", "vavoo"],
+    "rai 3": ["daddy", "vavoo"],
+    "italia 1": ["daddy", "vavoo"],
+    "rete 4": ["daddy", "vavoo"],
+    "canale 5": ["daddy", "vavoo"],
+    "la7": ["daddy", "vavoo"],
+    "tv8": ["daddy", "vavoo"],
+    "nove": ["daddy", "vavoo"],
+    "dmax": ["daddy", "vavoo"],
+    "realtime": ["daddy", "vavoo"], # STREAM ID è "realtime", la tua chiave era "real-time"
+    "focus": ["daddy", "vavoo"],
+    "cielo": ["daddy", "vavoo"],
+    "comedy central": ["calcionew", "vavoo", "mpdstatic"],
+    "history": ["calcionew", "vavoo", "mpdstatic"],
+    "sportitalia": ["calcionew", "vavoo", "mpdstatic"], # STREAM ID è "sportitalia", la tua chiave era "sport-italia"
+}
