@@ -550,7 +550,7 @@ async def get_mpdstatic_streams_with_mfp(client, channel_id_full, mfp_url=None, 
     if MPDSTATIC != "1":
         return []
     
-    streams = await get_mpdstatic_streams_for_channel_id(channel_id_full, client)
+    streams = await get_mpdstatic_streams_for_channel_id channel_id_full, client)
     
     # Applica MFP se abilitato
     if mfp_url and mfp_password and streams:
