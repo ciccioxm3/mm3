@@ -18,7 +18,10 @@ from Src.API.epg import tivu, tivu_get,epg_guide,convert_bho_1,convert_bho_2,con
 from Src.API.webru import webru,get_skystreaming
 from Src.API.onlineserietv import onlineserietv
 from curl_cffi.requests import AsyncSession
-from Src.API.omgtv import get_omgtv_streams_for_channel_id # Importa la nuova funzione
+from Src.API.daddy import get_247ita_streams, get_daddy_streams_for_channel_id
+from Src.API.vavoo import get_vavoo_streams, get_vavoo_streams_for_channel_id
+from Src.API.calcionew import get_calcio_streams, get_calcionew_streams_for_channel_id
+from Src.API.mpdstatic import get_static_channel_streams, get_mpdstatic_streams_for_channel_id
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.middleware import SlowAPIMiddleware
